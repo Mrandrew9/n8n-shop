@@ -1,0 +1,223 @@
+{
+  "name": "Employee Access Request & Approval",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "access-request",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "1a2b3c4d-0001",
+      "name": "Access Request Received",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [220, 380]
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            { "name": "requesterName", "stringValue": "={{$json[\"requesterName\"]}}" },
+            { "name": "requesterEmail", "stringValue": "={{$json[\"requesterEmail\"]}}" },
+            { "name": "appRequested", "stringValue": "={{$json[\"appRequested\"]}}" },
+            { "name": "accessLevel", "stringValue": "={{$json[\"accessLevel\"]}}" },
+            { "name": "justification", "stringValue": "={{$json[\"justification\"]}}" },
+            { "name": "requestedAt", "stringValue": "={{$now}}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1a2b3c4d-0002",
+      "name": "Format Request Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [440, 380]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "leftValue": "={{$json[\"accessLevel\"]}}",
+              "rightValue": "admin",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1a2b3c4d-0003",
+      "name": "Is Sensitive Access?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [660, 380]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": "security-approvals",
+        "text": "=🔐 *Sensitive access request*\\nRequester: {{$json[\"requesterName\"]}}\\nApp: {{$json[\"appRequested\"]}}\\nLevel: {{$json[\"accessLevel\"]}}\\nJustification: {{$json[\"justification\"]}}\\n\\nReply APPROVE or REJECT to this request.",
+        "otherOptions": {}
+      },
+      "id": "1a2b3c4d-0004",
+      "name": "Notify Security Lead",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [900, 260]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": "it-approvals",
+        "text": "=🔑 *Standard access request*\\nRequester: {{$json[\"requesterName\"]}}\\nApp: {{$json[\"appRequested\"]}}\\nJustification: {{$json[\"justification\"]}}\\n\\nReply APPROVE or REJECT to this request.",
+        "otherOptions": {}
+      },
+      "id": "1a2b3c4d-0005",
+      "name": "Notify Standard Approver",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [900, 500]
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "options": {
+          "webhookSuffix": "=/approval-decision"
+        }
+      },
+      "id": "1a2b3c4d-0006",
+      "name": "Wait for Approval Decision",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1120, 380]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "leftValue": "={{$json[\"decision\"]}}",
+              "rightValue": "APPROVE",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1a2b3c4d-0007",
+      "name": "Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1340, 380]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env[\"IAM_API_BASE_URL\"]}}/provision-access",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "user", "value": "={{$json[\"requesterEmail\"]}}" },
+            { "name": "application", "value": "={{$json[\"appRequested\"]}}" },
+            { "name": "level", "value": "={{$json[\"accessLevel\"]}}" }
+          ]
+        },
+        "options": {
+          "retry": { "retryOnFail": true, "maxRetries": 3 }
+        }
+      },
+      "id": "1a2b3c4d-0008",
+      "name": "Grant Access via IAM API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 260]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": "={{$json[\"requesterSlackId\"]}}",
+        "text": "=✅ Your access request for {{$json[\"appRequested\"]}} has been approved and provisioned.",
+        "otherOptions": {}
+      },
+      "id": "1a2b3c4d-0009",
+      "name": "Notify Requester - Approved",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [1780, 260]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": "={{$json[\"requesterSlackId\"]}}",
+        "text": "=❌ Your access request for {{$json[\"appRequested\"]}} was not approved. Contact your approver for details.",
+        "otherOptions": {}
+      },
+      "id": "1a2b3c4d-0010",
+      "name": "Notify Requester - Rejected",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [1560, 500]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "sheetId": "={{$env[\"AUDIT_LOG_SHEET_ID\"]}}",
+        "range": "AccessLog!A:G",
+        "options": {}
+      },
+      "id": "1a2b3c4d-0011",
+      "name": "Log to Audit Trail",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1780, 500]
+    }
+  ],
+  "connections": {
+    "Access Request Received": {
+      "main": [[{ "node": "Format Request Data", "type": "main", "index": 0 }]]
+    },
+    "Format Request Data": {
+      "main": [[{ "node": "Is Sensitive Access?", "type": "main", "index": 0 }]]
+    },
+    "Is Sensitive Access?": {
+      "main": [
+        [{ "node": "Notify Security Lead", "type": "main", "index": 0 }],
+        [{ "node": "Notify Standard Approver", "type": "main", "index": 0 }]
+      ]
+    },
+    "Notify Security Lead": {
+      "main": [[{ "node": "Wait for Approval Decision", "type": "main", "index": 0 }]]
+    },
+    "Notify Standard Approver": {
+      "main": [[{ "node": "Wait for Approval Decision", "type": "main", "index": 0 }]]
+    },
+    "Wait for Approval Decision": {
+      "main": [[{ "node": "Approved?", "type": "main", "index": 0 }]]
+    },
+    "Approved?": {
+      "main": [
+        [{ "node": "Grant Access via IAM API", "type": "main", "index": 0 }],
+        [{ "node": "Notify Requester - Rejected", "type": "main", "index": 0 }]
+      ]
+    },
+    "Grant Access via IAM API": {
+      "main": [[{ "node": "Notify Requester - Approved", "type": "main", "index": 0 }]]
+    },
+    "Notify Requester - Approved": {
+      "main": [[{ "node": "Log to Audit Trail", "type": "main", "index": 0 }]]
+    },
+    "Notify Requester - Rejected": {
+      "main": [[{ "node": "Log to Audit Trail", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}
