@@ -1,6 +1,6 @@
 # n8n Shop
 
-A collection of practical n8n workflows for IT operations, identity & access management, and workplace automation — built and maintained by [Andy Yonan](https://linkedin.com/in/AndyYonan).
+A collection of practical n8n workflows for IT operations, identity & access management, and workplace automation — built and maintained by [Andrew Yonan](https://www.linkedin.com/in/andrew-yonan/).
 
 Each workflow is production-inspired but fully genericized — no proprietary data, internal APIs, or company-specific configuration. Import any `.json` directly into your own n8n instance.
 
