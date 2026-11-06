@@ -1,5 +1,9 @@
 # n8n Shop
 
+![n8n](https://img.shields.io/badge/n8n-workflows-EA4B71?logo=n8n&logoColor=white)
+![IAM](https://img.shields.io/badge/focus-IAM%20%26%20IT%20ops-2B6CB0)
+![License: MIT](https://img.shields.io/badge/license-MIT-green)
+
 A collection of practical n8n workflows for IT operations, identity & access management, and workplace automation — built and maintained by [Andrew Yonan](https://linkedin.com/in/Andrew-Yonan).
 
 Each workflow is production-inspired but fully genericized — no proprietary data, internal APIs, or company-specific configuration. Import any `.json` directly into your own n8n instance.

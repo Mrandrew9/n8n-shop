@@ -4,23 +4,20 @@ Human-in-the-loop access approval for SaaS apps, with risk-based routing, automa
 
 ## Flow
 
-```
-POST /access-request
-      │
-      ▼
-Format Request Data
-      │
-Is Sensitive Access? (accessLevel == "admin")
-   ├── yes ─► Slack #security-approvals
-   └── no  ─► Slack #it-approvals
-                    │
-      Wait for Approval Decision (resume webhook)
-                    │
-               Approved?
-   ├── APPROVE ─► Grant Access via IAM API (3 retries) ─► DM requester ✅
-   └── other   ─► DM requester ❌
-                    │
-           Log to Audit Trail (Google Sheets)
+```mermaid
+flowchart TD
+    A["POST /access-request"] --> B["Format Request Data"]
+    B --> C{"accessLevel = admin?"}
+    C -- yes --> D["Slack #security-approvals"]
+    C -- no --> E["Slack #it-approvals"]
+    D --> F["Wait for approval decision"]
+    E --> F
+    F --> G{"decision = APPROVE?"}
+    G -- yes --> H["Grant access via IAM API<br/>(3 retries)"]
+    H --> I["DM requester: approved"]
+    G -- no --> J["DM requester: rejected"]
+    I --> K[("Audit log<br/>Google Sheets")]
+    J --> K
 ```
 
 ## Request payload
