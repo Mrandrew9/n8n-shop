@@ -1,0 +1,859 @@
+{
+  "name": "GDPR Data Subject Request (DSAR)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dsar-request",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "7b014196-03f7-54e4-8358-2cd42e355493",
+      "name": "DSAR Request Received",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        200,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate the incoming request and compute the GDPR Art. 12(3) deadline:\n// one calendar month from receipt (clamped to month end, e.g. 31 Jan -> 28/29 Feb).\nconst body = $input.first().json.body ?? $input.first().json;\nconst type = String(body.requestType ?? '').trim().toLowerCase();\nconst email = String(body.email ?? '').trim().toLowerCase();\n\nif (!['access', 'erasure'].includes(type)) {\n  throw new Error(`requestType must be \"access\" or \"erasure\", got \"${body.requestType}\"`);\n}\nif (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)) {\n  throw new Error('A valid email address is required');\n}\n\nfunction addOneMonth(date) {\n  const y = date.getUTCFullYear();\n  const m = date.getUTCMonth() + 1;\n  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();\n  return new Date(Date.UTC(y, m, Math.min(date.getUTCDate(), lastDay)));\n}\n\nconst received = body.receivedAt ? new Date(body.receivedAt) : new Date();\nif (isNaN(received)) throw new Error('receivedAt is not a valid date');\nconst stamp = received.toISOString().slice(0, 10).replace(/-/g, '');\nconst suffix = Math.random().toString(36).slice(2, 7).toUpperCase();\n\nreturn [{\n  json: {\n    requestId: `DSAR-${stamp}-${suffix}`,\n    requestType: type,\n    email,\n    fullName: String(body.fullName ?? '').trim(),\n    receivedAt: received.toISOString(),\n    deadline: addOneMonth(received).toISOString().slice(0, 10),\n  },\n}];\n"
+      },
+      "id": "219d7a62-6354-5401-a072-31d944329c97",
+      "name": "Normalize Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$env.DSAR_REGISTER_SHEET_ID}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "DSARRegister",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "RequestId": "={{$json.requestId}}",
+            "RequestType": "={{$json.requestType}}",
+            "Email": "={{$json.email}}",
+            "ReceivedAt": "={{$json.receivedAt}}",
+            "Deadline": "={{$json.deadline}}",
+            "Status": "Received - awaiting verification",
+            "SystemsFound": "",
+            "CompletedAt": ""
+          }
+        },
+        "options": {}
+      },
+      "id": "3f1f5c97-d080-5992-b274-b2441b8be914",
+      "name": "Log to DSAR Register",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        640,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{$env.DSAR_FROM_EMAIL}}",
+        "toEmail": "={{$('Normalize Request').first().json.email}}",
+        "subject": "=Confirm your data request {{$('Normalize Request').first().json.requestId}}",
+        "emailFormat": "text",
+        "text": "=Hello,\n\nWe received a request to {{$('Normalize Request').first().json.requestType === 'access' ? 'access a copy of' : 'erase'}} the personal data we hold about you.\n\nTo confirm it was you, open this link within 7 days:\n{{$execution.resumeUrl}}\n\nIf you did not make this request, ignore this email.\n\nReference: {{$('Normalize Request').first().json.requestId}}",
+        "options": {}
+      },
+      "id": "ecd4fbb8-d87e-5726-9f42-3d824e75bd15",
+      "name": "Send Verification Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        860,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "httpMethod": "GET",
+        "limitWaitTime": true,
+        "limitType": "afterTimeInterval",
+        "resumeAmount": 7,
+        "resumeUnit": "days",
+        "options": {}
+      },
+      "id": "c48d4286-db7b-55f5-8a40-406c7483b7ec",
+      "name": "Wait for Identity Verification",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1080,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.query !== undefined }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5e54a943-e0ed-5c73-a820-1dcbe35b0865",
+      "name": "Identity Verified?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://slack.com/api/users.lookupByEmail?email={{encodeURIComponent($('Normalize Request').first().json.email)}}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "slackApi",
+        "options": {}
+      },
+      "id": "2ed29871-3b92-525c-a7d1-ea0bd68a1992",
+      "name": "Find in Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1520,
+        300
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://admin.googleapis.com/admin/directory/v1/users/{{encodeURIComponent($('Normalize Request').first().json.email)}}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "options": {}
+      },
+      "id": "a6ff496d-e25d-5f32-ac05-80e83d00784d",
+      "name": "Find in Google Workspace",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1740,
+        300
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.JIRA_BASE_URL}}/rest/api/3/user/search?query={{encodeURIComponent($('Normalize Request').first().json.email)}}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "jiraSoftwareCloudApi",
+        "options": {}
+      },
+      "id": "09edf71f-17f1-53d8-afbe-056859c0a993",
+      "name": "Find in Jira",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1960,
+        300
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine the three lookups into one inventory of where this person's data lives.\n// Each lookup node runs with \"continue on error\", so a missing account is not a failure.\nconst req = $('Normalize Request').first().json;\nconst slack = $('Find in Slack').first().json;\nconst google = $('Find in Google Workspace').first().json;\nconst jira = $('Find in Jira').first().json;\n\nconst systems = [];\n\nif (slack && slack.ok && slack.user) {\n  systems.push({\n    system: 'Slack',\n    found: true,\n    accountId: slack.user.id,\n    data: {\n      displayName: slack.user.profile?.display_name,\n      realName: slack.user.profile?.real_name,\n      title: slack.user.profile?.title,\n      timezone: slack.user.tz,\n      deleted: slack.user.deleted,\n    },\n  });\n} else {\n  systems.push({ system: 'Slack', found: false });\n}\n\nif (google && google.primaryEmail) {\n  systems.push({\n    system: 'Google Workspace',\n    found: true,\n    accountId: google.id,\n    data: {\n      primaryEmail: google.primaryEmail,\n      name: google.name?.fullName,\n      orgUnitPath: google.orgUnitPath,\n      lastLoginTime: google.lastLoginTime,\n      creationTime: google.creationTime,\n      suspended: google.suspended,\n    },\n  });\n} else {\n  systems.push({ system: 'Google Workspace', found: false });\n}\n\nconst jiraUser = Array.isArray(jira) ? jira[0] : (jira && jira.accountId ? jira : null);\nif (jiraUser && jiraUser.accountId) {\n  systems.push({\n    system: 'Jira',\n    found: true,\n    accountId: jiraUser.accountId,\n    data: {\n      displayName: jiraUser.displayName,\n      active: jiraUser.active,\n      timeZone: jiraUser.timeZone,\n    },\n  });\n} else {\n  systems.push({ system: 'Jira', found: false });\n}\n\nconst found = systems.filter((s) => s.found);\nreturn [{\n  json: {\n    ...req,\n    systems,\n    systemsFound: found.map((s) => s.system).join(', ') || 'none',\n    slackUserId: found.find((s) => s.system === 'Slack')?.accountId ?? null,\n    jiraAccountId: found.find((s) => s.system === 'Jira')?.accountId ?? null,\n    hasGoogleAccount: found.some((s) => s.system === 'Google Workspace'),\n    generatedAt: new Date().toISOString(),\n  },\n}];\n"
+      },
+      "id": "d50e4c82-97b6-5567-8d4d-476694112873",
+      "name": "Build Data Inventory",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2180,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json.requestType}}",
+              "rightValue": "access",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "fd17ebbc-4d03-57cf-bc6b-a4bd73af01fa",
+      "name": "Access or Erasure?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "toJson",
+        "mode": "once",
+        "options": {
+          "fileName": "={{$('Build Data Inventory').first().json.requestId}}-personal-data.json",
+          "format": true
+        }
+      },
+      "id": "d16fabf3-d680-52f6-bd89-6b5dcaf480e8",
+      "name": "Build Export File",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        2620,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{$env.DSAR_FROM_EMAIL}}",
+        "toEmail": "={{$('Build Data Inventory').first().json.email}}",
+        "subject": "=Your personal data export ({{$('Build Data Inventory').first().json.requestId}})",
+        "emailFormat": "text",
+        "text": "=Hello,\n\nAttached is a copy of the personal data we hold about you in our workplace systems ({{$('Build Data Inventory').first().json.systemsFound}}), as requested under Article 15 GDPR.\n\nYou also have the right to rectification, erasure, restriction of processing, and to lodge a complaint with a supervisory authority.\n\nReference: {{$('Build Data Inventory').first().json.requestId}}",
+        "options": {
+          "attachments": "data"
+        }
+      },
+      "id": "d7815966-20ff-5721-a9a5-5144f3ced920",
+      "name": "Email Export to Requester",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        2840,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "outcome",
+              "stringValue": "Completed - access fulfilled"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e3fd8254-081b-528f-b5e1-dbc627ed84ae",
+      "name": "Outcome: Access Fulfilled",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        3060,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": "privacy-approvals",
+        "text": "=🗑️ *Erasure request {{$('Build Data Inventory').first().json.requestId}}*\nSubject: {{$('Build Data Inventory').first().json.email}}\nFound in: {{$('Build Data Inventory').first().json.systemsFound}}\nDeadline: {{$('Build Data Inventory').first().json.deadline}}\n\nBefore approving, check Art. 17(3) exceptions: legal holds, employment and tax record retention, open disputes.\nDecide: POST {\"decision\": \"ERASE\"} or {\"decision\": \"REFUSE\", \"reason\": \"...\"} to {{$execution.resumeUrl}}",
+        "otherOptions": {}
+      },
+      "id": "02f2505b-b6e5-5fca-9679-8d0d434a237e",
+      "name": "Ask DPO to Approve Erasure",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        2620,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "id": "cb034e24-b34e-5033-83d2-b31d2b83a42c",
+      "name": "Wait for DPO Decision",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2840,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json.body.decision}}",
+              "rightValue": "ERASE",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "415a3d09-a0bd-5f9d-bd27-9b7ef74e2cd9",
+      "name": "Erasure Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3060,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://api.slack.com/scim/v2/Users/{{$('Build Data Inventory').first().json.slackUserId}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "a3acbcf0-401f-5026-914a-c1e2af4aac66",
+      "name": "Deactivate Slack User (SCIM)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3280,
+        340
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://admin.googleapis.com/admin/directory/v1/users/{{encodeURIComponent($('Build Data Inventory').first().json.email)}}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "options": {}
+      },
+      "id": "e881d28a-23d5-5e53-974b-0142c4bdad72",
+      "name": "Delete Google Workspace User",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3500,
+        340
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.atlassian.com/users/{{$('Build Data Inventory').first().json.jiraAccountId}}/manage/lifecycle/delete",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "3d800cfd-3e7c-5151-b8f7-42c50f1f5db6",
+      "name": "Delete Atlassian Account",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3720,
+        340
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{$env.DSAR_FROM_EMAIL}}",
+        "toEmail": "={{$('Build Data Inventory').first().json.email}}",
+        "subject": "=Your data has been erased ({{$('Build Data Inventory').first().json.requestId}})",
+        "emailFormat": "text",
+        "text": "=Hello,\n\nAs requested under Article 17 GDPR, we have erased your personal data from: {{$('Build Data Inventory').first().json.systemsFound}}.\n\nReference: {{$('Build Data Inventory').first().json.requestId}}",
+        "options": {}
+      },
+      "id": "c28b8c05-9100-544e-bd16-640a26f50503",
+      "name": "Confirm Erasure to Requester",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        3940,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "outcome",
+              "stringValue": "Completed - erased"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "24ff9d43-2c84-5c0a-bc93-083d757c1845",
+      "name": "Outcome: Erased",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        4160,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{$env.DSAR_FROM_EMAIL}}",
+        "toEmail": "={{$('Build Data Inventory').first().json.email}}",
+        "subject": "=Update on your erasure request ({{$('Build Data Inventory').first().json.requestId}})",
+        "emailFormat": "text",
+        "text": "=Hello,\n\nWe are unable to erase some or all of your data for the following reason:\n{{$json.body.reason}}\n\nYou have the right to lodge a complaint with a supervisory authority and to seek a judicial remedy (Article 12(4) GDPR).\n\nReference: {{$('Build Data Inventory').first().json.requestId}}",
+        "options": {}
+      },
+      "id": "c3313d54-cc14-5f0a-a1ca-59ffa64d382c",
+      "name": "Explain Refusal to Requester",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        3280,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "outcome",
+              "stringValue": "Completed - refused"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f8649453-fe9e-5b1a-a1a4-9c9e663700a1",
+      "name": "Outcome: Refused",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        3500,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "outcome",
+              "stringValue": "Closed - not verified"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9fa64a30-06e5-5619-b5fd-3560f1672c6d",
+      "name": "Outcome: Not Verified",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        1520,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$env.DSAR_REGISTER_SHEET_ID}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "DSARRegister",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "RequestId": "={{$('Normalize Request').first().json.requestId}}",
+            "Status": "={{$json.outcome}}",
+            "SystemsFound": "={{$('Build Data Inventory').isExecuted ? $('Build Data Inventory').first().json.systemsFound : ''}}",
+            "CompletedAt": "={{$now.toISO()}}"
+          },
+          "matchingColumns": [
+            "RequestId"
+          ]
+        },
+        "options": {}
+      },
+      "id": "c22a90ac-7528-56f4-b0d4-0d3e0e72c8fc",
+      "name": "Update DSAR Register",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        4380,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "DSAR Request Received": {
+      "main": [
+        [
+          {
+            "node": "Normalize Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Request": {
+      "main": [
+        [
+          {
+            "node": "Log to DSAR Register",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to DSAR Register": {
+      "main": [
+        [
+          {
+            "node": "Send Verification Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Verification Email": {
+      "main": [
+        [
+          {
+            "node": "Wait for Identity Verification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Identity Verification": {
+      "main": [
+        [
+          {
+            "node": "Identity Verified?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Identity Verified?": {
+      "main": [
+        [
+          {
+            "node": "Find in Slack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Outcome: Not Verified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find in Slack": {
+      "main": [
+        [
+          {
+            "node": "Find in Google Workspace",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find in Google Workspace": {
+      "main": [
+        [
+          {
+            "node": "Find in Jira",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find in Jira": {
+      "main": [
+        [
+          {
+            "node": "Build Data Inventory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Data Inventory": {
+      "main": [
+        [
+          {
+            "node": "Access or Erasure?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Access or Erasure?": {
+      "main": [
+        [
+          {
+            "node": "Build Export File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ask DPO to Approve Erasure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Export File": {
+      "main": [
+        [
+          {
+            "node": "Email Export to Requester",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Export to Requester": {
+      "main": [
+        [
+          {
+            "node": "Outcome: Access Fulfilled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask DPO to Approve Erasure": {
+      "main": [
+        [
+          {
+            "node": "Wait for DPO Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for DPO Decision": {
+      "main": [
+        [
+          {
+            "node": "Erasure Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Erasure Approved?": {
+      "main": [
+        [
+          {
+            "node": "Deactivate Slack User (SCIM)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Explain Refusal to Requester",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deactivate Slack User (SCIM)": {
+      "main": [
+        [
+          {
+            "node": "Delete Google Workspace User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Google Workspace User": {
+      "main": [
+        [
+          {
+            "node": "Delete Atlassian Account",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Atlassian Account": {
+      "main": [
+        [
+          {
+            "node": "Confirm Erasure to Requester",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirm Erasure to Requester": {
+      "main": [
+        [
+          {
+            "node": "Outcome: Erased",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Explain Refusal to Requester": {
+      "main": [
+        [
+          {
+            "node": "Outcome: Refused",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Outcome: Access Fulfilled": {
+      "main": [
+        [
+          {
+            "node": "Update DSAR Register",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Outcome: Erased": {
+      "main": [
+        [
+          {
+            "node": "Update DSAR Register",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Outcome: Refused": {
+      "main": [
+        [
+          {
+            "node": "Update DSAR Register",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Outcome: Not Verified": {
+      "main": [
+        [
+          {
+            "node": "Update DSAR Register",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Berlin",
+    "saveDataSuccessExecution": "none"
+  },
+  "pinData": {}
+}

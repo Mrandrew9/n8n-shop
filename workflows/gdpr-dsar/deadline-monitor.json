@@ -1,0 +1,119 @@
+{
+  "name": "GDPR DSAR Deadline Monitor",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "d4c6afea-1710-5312-806f-7b79b1bf7ae6",
+      "name": "Every Morning 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$env.DSAR_REGISTER_SHEET_ID}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "DSARRegister",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "832d6ad4-3853-5ff5-9823-1a06b4ac0abc",
+      "name": "Read DSAR Register",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        420,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Flag open requests that are overdue or due within WARN_DAYS.\nconst WARN_DAYS = 7;\nconst CLOSED = ['Completed - access fulfilled', 'Completed - erased', 'Completed - refused', 'Closed - not verified'];\nconst today = new Date(new Date().toISOString().slice(0, 10));\n\nconst atRisk = $input.all()\n  .map((i) => i.json)\n  .filter((r) => r.RequestId && !CLOSED.includes(r.Status))\n  .map((r) => {\n    const daysLeft = Math.round((new Date(r.Deadline) - today) / 86400000);\n    return { ...r, daysLeft };\n  })\n  .filter((r) => r.daysLeft <= WARN_DAYS)\n  .sort((a, b) => a.daysLeft - b.daysLeft);\n\nif (atRisk.length === 0) return [];\n\nconst lines = atRisk.map((r) => {\n  const when = r.daysLeft < 0 ? `*OVERDUE by ${-r.daysLeft}d*` : `due in ${r.daysLeft}d`;\n  return `• ${r.RequestId} (${r.RequestType}) ${when}, deadline ${r.Deadline}, status: ${r.Status}`;\n});\n\nreturn [{ json: { count: atRisk.length, summary: lines.join('\\n') } }];\n"
+      },
+      "id": "b32aafb7-31cf-5d66-8716-c38fd467e6ef",
+      "name": "Find Requests at Risk",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": "privacy-team",
+        "text": "=⏰ *{{$json.count}} data subject request(s) need attention*\n{{$json.summary}}\n\nGDPR allows one month, extendable by two months for complex requests if the requester is told within the first month (Art. 12(3)).",
+        "otherOptions": {}
+      },
+      "id": "8c4e23c4-c386-5779-9dae-1780fe53011d",
+      "name": "Alert Privacy Team",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        860,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Every Morning 08:00": {
+      "main": [
+        [
+          {
+            "node": "Read DSAR Register",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read DSAR Register": {
+      "main": [
+        [
+          {
+            "node": "Find Requests at Risk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Requests at Risk": {
+      "main": [
+        [
+          {
+            "node": "Alert Privacy Team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Berlin"
+  },
+  "pinData": {}
+}

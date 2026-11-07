@@ -97,7 +97,7 @@
       "parameters": {
         "select": "channel",
         "channelId": "security-approvals",
-        "text": "=🔐 *Sensitive access request*\\nRequester: {{$json[\"requesterName\"]}}\\nApp: {{$json[\"appRequested\"]}}\\nLevel: {{$json[\"accessLevel\"]}}\\nJustification: {{$json[\"justification\"]}}\\n\\nReply APPROVE or REJECT to this request.",
+        "text": "=🔐 *Sensitive access request*\nRequester: {{$json[\"requesterName\"]}}\nApp: {{$json[\"appRequested\"]}}\nLevel: {{$json[\"accessLevel\"]}}\nJustification: {{$json[\"justification\"]}}\n\nReply APPROVE or REJECT to this request.",
         "otherOptions": {}
       },
       "id": "1a2b3c4d-0004",
@@ -113,7 +113,7 @@
       "parameters": {
         "select": "channel",
         "channelId": "it-approvals",
-        "text": "=🔑 *Standard access request*\\nRequester: {{$json[\"requesterName\"]}}\\nApp: {{$json[\"appRequested\"]}}\\nJustification: {{$json[\"justification\"]}}\\n\\nReply APPROVE or REJECT to this request.",
+        "text": "=🔑 *Standard access request*\nRequester: {{$json[\"requesterName\"]}}\nApp: {{$json[\"appRequested\"]}}\nJustification: {{$json[\"justification\"]}}\n\nReply APPROVE or REJECT to this request.",
         "otherOptions": {}
       },
       "id": "1a2b3c4d-0005",

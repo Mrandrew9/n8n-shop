@@ -1,5 +1,6 @@
 # n8n Shop
 
+![validate-workflows](https://github.com/Mrandrew9/n8n-shop/actions/workflows/validate.yml/badge.svg)
 ![n8n](https://img.shields.io/badge/n8n-workflows-EA4B71?logo=n8n&logoColor=white)
 ![IAM](https://img.shields.io/badge/focus-IAM%20%26%20IT%20ops-2B6CB0)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
@@ -12,6 +13,7 @@ Each workflow is production-inspired but fully genericized — no proprietary da
 
 | Workflow | Description | Folder |
 |---|---|---|
+| GDPR Data Subject Requests | GDPR access and erasure requests across Slack, Google Workspace and Jira: identity check, one-month deadline tracking, DPO approval gate, register | [`/workflows/gdpr-dsar`](workflows/gdpr-dsar) |
 | Access Request & Approval | Human-in-the-loop IAM access approval with risk-based routing and audit logging | [`/workflows/access-request-approval`](workflows/access-request-approval) |
 
 *More workflows added regularly — see [Issues](../../issues) for the roadmap.*
@@ -23,8 +25,20 @@ Most workflow examples online are toy demos. These are built the way real enterp
 ## How to use
 
 1. Open the workflow folder you want.
-2. Import the `workflow.json` into n8n (Workflows → Import from File).
+2. Import its `.json` file(s) into n8n (Workflows → Import from File).
 3. Follow the folder's own README for credential setup (Slack, Google Sheets, etc. — you'll need your own).
+
+## Quality checks
+
+Every push runs [`validate-workflows`](.github/workflows/validate.yml):
+
+- `scripts/validate_workflows.py` checks that each workflow is valid JSON, every connection points at a real node, every node is reachable from a trigger, Code nodes are valid JavaScript, and no secrets are hardcoded.
+- `tests/` unit-tests the JavaScript inside Code nodes, read straight from the workflow files.
+
+```bash
+python scripts/validate_workflows.py
+node --test tests/*.test.js
+```
 
 ## License
 
