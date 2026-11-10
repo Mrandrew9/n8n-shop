@@ -1,14 +1,14 @@
 {
-  "name": "GDPR DSAR Deadline Monitor",
+  "name": "DSAR Deadline Monitor",
   "nodes": [
     {
       "parameters": {
-        "content": "## GDPR DSAR deadline monitor\nEvery morning at 08:00 (Europe/Berlin), reads the DSAR register and alerts `#privacy-team` in Slack about open requests that are overdue or due within 7 days.\n\n### Setup\n1. Set **registerSheetId** in **Workflow Configuration** (the same sheet as the DSAR workflow).\n2. Add Google Sheets and Slack credentials.\n3. Create `#privacy-team`, or change the channel in **Alert Privacy Team**.\n\nSends nothing when no request is at risk.",
+        "content": "## DSAR deadline monitor\nEvery morning at 08:00, reads the DSAR register and alerts `#privacy-team` in Slack about open requests that are overdue or due within 7 days, for any jurisdiction.\n\n### Setup\n1. Set **registerSheetId** in **Workflow Configuration** (the same sheet as the DSAR workflow).\n2. Add Google Sheets and Slack credentials.\n3. Create `#privacy-team`, or change the channel in **Alert Privacy Team**.\n\nSends nothing when no request is at risk.",
         "height": 520,
         "width": 500
       },
-      "id": "116428c6-da15-5d92-9601-068035204f6c",
-      "name": "Sticky Note 7",
+      "id": "109fbb05-61f9-581c-af4c-dfde5a0935a7",
+      "name": "Sticky Note 1",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
@@ -83,7 +83,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Flag open requests that are overdue or due within WARN_DAYS.\nconst WARN_DAYS = 7;\nconst CLOSED = ['Completed - access fulfilled', 'Completed - erased', 'Completed - refused', 'Closed - not verified'];\nconst today = new Date(new Date().toISOString().slice(0, 10));\n\nconst atRisk = $input.all()\n  .map((i) => i.json)\n  .filter((r) => r.RequestId && !CLOSED.includes(r.Status))\n  .map((r) => {\n    const daysLeft = Math.round((new Date(r.Deadline) - today) / 86400000);\n    return { ...r, daysLeft };\n  })\n  .filter((r) => r.daysLeft <= WARN_DAYS)\n  .sort((a, b) => a.daysLeft - b.daysLeft);\n\nif (atRisk.length === 0) return [];\n\nconst lines = atRisk.map((r) => {\n  const when = r.daysLeft < 0 ? `*OVERDUE by ${-r.daysLeft}d*` : `due in ${r.daysLeft}d`;\n  return `• ${r.RequestId} (${r.RequestType}) ${when}, deadline ${r.Deadline}, status: ${r.Status}`;\n});\n\nreturn [{ json: { count: atRisk.length, summary: lines.join('\\n') } }];\n"
+        "jsCode": "// Flag open requests that are overdue or due within WARN_DAYS.\nconst WARN_DAYS = 7;\nconst CLOSED = ['Completed - access fulfilled', 'Completed - erased', 'Completed - corrected', 'Completed - refused', 'Closed - not verified'];\nconst today = new Date(new Date().toISOString().slice(0, 10));\n\nconst atRisk = $input.all()\n  .map((i) => i.json)\n  .filter((r) => r.RequestId && !CLOSED.includes(r.Status))\n  .map((r) => {\n    const daysLeft = Math.round((new Date(r.Deadline) - today) / 86400000);\n    return { ...r, daysLeft };\n  })\n  .filter((r) => r.daysLeft <= WARN_DAYS)\n  .sort((a, b) => a.daysLeft - b.daysLeft);\n\nif (atRisk.length === 0) return [];\n\nconst lines = atRisk.map((r) => {\n  const when = r.daysLeft < 0 ? `*OVERDUE by ${-r.daysLeft}d*` : `due in ${r.daysLeft}d`;\n  return `• ${r.RequestId} (${r.Jurisdiction || 'GDPR'} ${r.RequestType}) ${when}, deadline ${r.Deadline}, status: ${r.Status}`;\n});\n\nreturn [{ json: { count: atRisk.length, summary: lines.join('\\n') } }];\n"
       },
       "id": "b32aafb7-31cf-5d66-8716-c38fd467e6ef",
       "name": "Find Requests at Risk",
@@ -102,7 +102,7 @@
           "value": "#privacy-team",
           "mode": "name"
         },
-        "text": "=⏰ *{{$json.count}} data subject request(s) need attention*\n{{$json.summary}}\n\nGDPR allows one month, extendable by two months for complex requests if the requester is told within the first month (Art. 12(3)).",
+        "text": "=⏰ *{{$json.count}} privacy request(s) need attention*\n{{$json.summary}}\n\nIf you need an extension, tell the requester why before the original deadline (GDPR: up to two more months; CCPA: up to 45 more days).",
         "otherOptions": {}
       },
       "id": "8c4e23c4-c386-5779-9dae-1780fe53011d",

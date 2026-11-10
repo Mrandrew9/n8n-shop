@@ -13,7 +13,7 @@ Each workflow is production-inspired but fully genericized — no proprietary da
 
 | Workflow | Description | Folder |
 |---|---|---|
-| GDPR Data Subject Requests | GDPR access and erasure requests across Slack, Google Workspace and Jira: identity check, one-month deadline tracking, DPO approval gate, register | [`/workflows/gdpr-dsar`](workflows/gdpr-dsar) |
+| Privacy Requests (GDPR + CCPA) | Access, erasure and correction requests across Slack, Google Workspace and Jira under GDPR or California's CCPA: jurisdiction rules table, identity check, deadline tracking, DPO approval gate, register | [`/workflows/gdpr-dsar`](workflows/gdpr-dsar) |
 | Access Request & Approval | Human-in-the-loop IAM access approval with risk-based routing and audit logging | [`/workflows/access-request-approval`](workflows/access-request-approval) |
 
 *More workflows added regularly — see [Issues](../../issues) for the roadmap.*

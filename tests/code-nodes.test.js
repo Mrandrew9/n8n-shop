@@ -21,7 +21,9 @@ const normalize = code(dsar, 'Normalize Request');
 const inventory = code(dsar, 'Build Data Inventory');
 const atRisk = code(monitor, 'Find Requests at Risk');
 
-test('deadline is one calendar month, clamped to month end', () => {
+const normalizeReq = (body) => run(normalize, [{ body }])[0].json;
+
+test('GDPR deadline is one calendar month, clamped to month end', () => {
   const cases = {
     '2026-01-31T10:00:00Z': '2026-02-28',
     '2028-01-31T10:00:00Z': '2028-02-29',
@@ -30,21 +32,59 @@ test('deadline is one calendar month, clamped to month end', () => {
     '2026-12-20T09:00:00Z': '2027-01-20',
   };
   for (const [receivedAt, due] of Object.entries(cases)) {
-    const [{ json }] = run(normalize, [{ body: { requestType: 'access', email: 'a@example.de', receivedAt } }]);
-    assert.strictEqual(json.deadline, due, receivedAt);
+    assert.strictEqual(normalizeReq({ requestType: 'access', email: 'a@example.de', receivedAt }).deadline, due, receivedAt);
   }
 });
 
+test('GDPR is the default, with a two-month extension and no acknowledgment deadline', () => {
+  const r = normalizeReq({ requestType: 'access', email: 'a@example.de', receivedAt: '2026-01-31T10:00:00Z' });
+  assert.strictEqual(r.jurisdiction, 'GDPR');
+  assert.strictEqual(r.extendedDeadline, '2026-04-30', 'three months from receipt, not from the clamped deadline');
+  assert.strictEqual(r.acknowledgeBy, '');
+  assert.strictEqual(r.legalRef, 'Article 15 GDPR');
+  assert.match(r.complaintText, /supervisory authority/);
+});
+
+test('CCPA: 45 calendar days, 10 business days to acknowledge, 90 days at most', () => {
+  // Friday 6 Nov 2026: 10 business days later is Friday 20 Nov.
+  const r = normalizeReq({ jurisdiction: 'ccpa', requestType: 'know', email: 'jane@example.com', receivedAt: '2026-11-06T17:00:00Z' });
+  assert.strictEqual(r.jurisdiction, 'CCPA');
+  assert.strictEqual(r.requestType, 'access');
+  assert.strictEqual(r.deadline, '2026-12-21');
+  assert.strictEqual(r.acknowledgeBy, '2026-11-20');
+  assert.strictEqual(r.extendedDeadline, '2027-02-04');
+  assert.match(r.legalRef, /right to know/);
+  assert.match(r.erasureExceptions, /1798\.105\(d\)/);
+  assert.match(r.complaintText, /California Privacy Protection Agency/);
+});
+
+test('business days skip weekends', () => {
+  // Saturday 7 Nov 2026: the count starts Monday 9 Nov, so 10 business days ends Friday 20 Nov.
+  assert.strictEqual(normalizeReq({ jurisdiction: 'CCPA', requestType: 'delete', email: 'a@b.com', receivedAt: '2026-11-07T12:00:00Z' }).acknowledgeBy, '2026-11-20');
+  // Wednesday 30 Dec 2026 across the year end: ends Wednesday 13 Jan 2027.
+  assert.strictEqual(normalizeReq({ jurisdiction: 'CCPA', requestType: 'delete', email: 'a@b.com', receivedAt: '2026-12-30T12:00:00Z' }).acknowledgeBy, '2027-01-13');
+});
+
+test('request type aliases map to the same three types', () => {
+  const t = (requestType, extra = {}) => normalizeReq({ requestType, email: 'a@b.com', details: 'x', ...extra }).requestType;
+  assert.strictEqual(t('Know'), 'access');
+  assert.strictEqual(t('deletion'), 'erasure');
+  assert.strictEqual(t('rectification'), 'correction');
+  assert.strictEqual(t('correct', { jurisdiction: 'CCPA' }), 'correction');
+});
+
 test('request is normalized and given an ID', () => {
-  const [{ json }] = run(normalize, [{ body: { requestType: ' Erasure ', email: ' Max.Muster@Example.DE ' } }]);
-  assert.strictEqual(json.requestType, 'erasure');
-  assert.strictEqual(json.email, 'max.muster@example.de');
-  assert.match(json.requestId, /^DSAR-\d{8}-[A-Z0-9]{5}$/);
+  const r = normalizeReq({ requestType: ' Erasure ', email: ' Max.Muster@Example.DE ' });
+  assert.strictEqual(r.requestType, 'erasure');
+  assert.strictEqual(r.email, 'max.muster@example.de');
+  assert.match(r.requestId, /^DSAR-\d{8}-[A-Z0-9]{5}$/);
 });
 
 test('invalid requests are rejected', () => {
-  assert.throws(() => run(normalize, [{ body: { requestType: 'delete-everything', email: 'a@b.de' } }]), /requestType/);
-  assert.throws(() => run(normalize, [{ body: { requestType: 'access', email: 'not-an-email' } }]), /email/);
+  assert.throws(() => normalizeReq({ requestType: 'delete-everything', email: 'a@b.de' }), /requestType/);
+  assert.throws(() => normalizeReq({ requestType: 'access', email: 'not-an-email' }), /email/);
+  assert.throws(() => normalizeReq({ jurisdiction: 'TX', requestType: 'access', email: 'a@b.de' }), /jurisdiction must be one of GDPR, CCPA/);
+  assert.throws(() => normalizeReq({ requestType: 'correction', email: 'a@b.de' }), /details/);
 });
 
 test('inventory records which systems hold the person', () => {
@@ -77,10 +117,14 @@ test('monitor flags overdue and due-soon requests, overdue first', () => {
     { RequestId: 'B', RequestType: 'erasure', Deadline: day(-2), Status: 'Received - awaiting verification' },
     { RequestId: 'C', RequestType: 'access', Deadline: day(20), Status: 'Received - awaiting verification' },
     { RequestId: 'D', RequestType: 'access', Deadline: day(-5), Status: 'Completed - access fulfilled' },
+    { RequestId: 'E', RequestType: 'correction', Deadline: day(-1), Status: 'Completed - corrected', Jurisdiction: 'CCPA' },
+    { RequestId: 'F', RequestType: 'erasure', Deadline: day(1), Status: 'Received - awaiting verification', Jurisdiction: 'CCPA' },
   ];
   const [{ json }] = run(atRisk, rows);
-  assert.strictEqual(json.count, 2);
-  assert.match(json.summary.split('\n')[0], /^• B .*OVERDUE by 2d/);
+  assert.strictEqual(json.count, 3);
+  const lines = json.summary.split('\n');
+  assert.match(lines[0], /^• B \(GDPR erasure\) .*OVERDUE by 2d/);
+  assert.match(lines[1], /^• F \(CCPA erasure\) due in 1d/);
 });
 
 test('monitor stays quiet when nothing is at risk', () => {

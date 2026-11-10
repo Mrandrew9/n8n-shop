@@ -1,26 +1,26 @@
 {
-  "name": "GDPR Data Subject Request (DSAR)",
+  "name": "Privacy Request (DSAR): GDPR and CCPA",
   "nodes": [
     {
       "parameters": {
-        "content": "## GDPR Data Subject Request (DSAR) automation\nHandles GDPR **access (Art. 15)** and **erasure (Art. 17)** requests for workplace data in Slack, Google Workspace and Jira, from intake to closure.\n\n### How it works\n1. A webhook receives the request. The deadline is set to one calendar month from receipt (Art. 12(3)).\n2. The request is logged to a Google Sheets register.\n3. The requester gets a verification link and has 7 days to click it.\n4. The person is looked up in Slack, Google Workspace and Jira.\n5. **Access:** a JSON export is emailed to them. **Erasure:** a DPO approves in Slack before anything is deleted. A refusal explains the reason and the right to complain.\n6. The register is updated with the outcome.\n\nPair with the **GDPR DSAR Deadline Monitor** workflow for daily overdue alerts.\n\n### Setup\n1. Fill in **Workflow Configuration** (sheet ID, sender address, Jira URL).\n2. Add credentials: SMTP, Slack API (`users:read.email`, `chat:write`), Google OAuth2 with Admin SDK Directory access, Jira Software Cloud, and Header Auth for the Slack SCIM and Atlassian admin APIs.\n3. Create a Google Sheet with a `DSARRegister` tab and the columns RequestId, RequestType, Email, ReceivedAt, Deadline, Status, SystemsFound, CompletedAt.\n4. Create the Slack channel `#privacy-approvals`.\n\n### Limitations\n- A technical template, not legal advice. Review retention rules with your DPO.\n- Slack SCIM needs a Business+ or Enterprise Grid plan.\n- Deleting a Google user is permanent. Transfer Drive files first if they must be kept.\n\nExample request body:\n`{\"requestType\": \"access\", \"email\": \"max.mustermann@example.de\"}`",
-        "height": 1060,
-        "width": 560
+        "content": "## Privacy request (DSAR) automation: GDPR and CCPA\nHandles **access**, **erasure** and **correction** requests for workplace data in Slack, Google Workspace and Jira, under **GDPR** (EU/EEA) or **CCPA/CPRA** (California), from intake to closure.\n\n### How it works\n1. A webhook receives the request. The jurisdiction's rules set the deadline: one month under GDPR, 45 days under CCPA, both from receipt.\n2. The request is logged to a Google Sheets register.\n3. The requester is emailed an acknowledgment with the deadline and a verification link (7 days to click). Under CCPA this meets the 10-business-day acknowledgment rule.\n4. The person is looked up in Slack, Google Workspace and Jira.\n5. **Access:** a JSON export is emailed. **Erasure:** a DPO approves in Slack before anything is deleted. **Correction:** the privacy team makes the change and confirms. Refusals explain the reason and where to complain.\n6. The register is updated with the outcome.\n\nPair with **DSAR Deadline Monitor** for daily overdue alerts.\n\n### Setup\n1. Fill in **Workflow Configuration** (sheet ID, sender address, Jira URL).\n2. Add credentials: SMTP, Slack API (`users:read.email`, `chat:write`), Google OAuth2 with Admin SDK Directory access, Jira Software Cloud, and Header Auth for the Slack SCIM and Atlassian admin APIs.\n3. Create a Google Sheet with a `DSARRegister` tab and the columns RequestId, Jurisdiction, RequestType, Email, ReceivedAt, AcknowledgedAt, Deadline, Status, SystemsFound, CompletedAt.\n4. Create the Slack channel `#privacy-approvals`.\n\n### Add a jurisdiction\nAdd an entry to `RULES` in **Normalize Request**: deadline, extension, acknowledgment window, legal references and complaint wording.\n\n### Limitations\n- A technical template, not legal advice. Review rules and wording with your DPO or counsel.\n- Business days skip weekends but not public holidays.\n- Slack SCIM needs a Business+ or Enterprise Grid plan. Deleting a Google user is permanent: transfer Drive files first.\n\nExample request body:\n`{\"jurisdiction\": \"CCPA\", \"requestType\": \"access\", \"email\": \"jane@example.com\"}`",
+        "height": 1180,
+        "width": 580
       },
       "id": "109fbb05-61f9-581c-af4c-dfde5a0935a7",
       "name": "Sticky Note 1",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -460,
-        60
+        -480,
+        20
       ]
     },
     {
       "parameters": {
-        "content": "## 1. Intake and identity check\nNormalizes the request, sets the one-month deadline, logs it, and waits up to 7 days for the requester to confirm by email. Unverified requests are closed and logged.",
+        "content": "## 1. Intake, acknowledgment and identity check\nApplies the jurisdiction's rules, logs the request, emails an acknowledgment with the deadline and a verification link, and waits up to 7 days. Unverified requests are closed and logged.",
         "height": 600,
-        "width": 1440,
+        "width": 1480,
         "color": 7
       },
       "id": "2eb689b6-a773-51c0-86f9-9ad3561cb83a",
@@ -29,14 +29,14 @@
       "typeVersion": 1,
       "position": [
         160,
-        160
+        200
       ]
     },
     {
       "parameters": {
         "content": "## 2. Locate personal data\nLooks the person up in each system. A lookup that finds nothing does not fail the run: it is recorded as not found.",
-        "height": 400,
-        "width": 960,
+        "height": 320,
+        "width": 1060,
         "color": 7
       },
       "id": "213a8750-6243-5b1e-99e1-24df2aac9e8a",
@@ -45,14 +45,14 @@
       "typeVersion": 1,
       "position": [
         1680,
-        120
+        160
       ]
     },
     {
       "parameters": {
-        "content": "## 3a. Access (Art. 15)\nCompiles what was found into a JSON file and emails it to the requester.",
-        "height": 320,
-        "width": 700,
+        "content": "## 3a. Access\nGDPR Art. 15 · CCPA right to know\nCompiles what was found into a JSON file and emails it.",
+        "height": 300,
+        "width": 640,
         "color": 4
       },
       "id": "e9acbcb6-0cb5-554d-abf0-00ccca7ea922",
@@ -61,14 +61,14 @@
       "typeVersion": 1,
       "position": [
         2780,
-        0
+        -60
       ]
     },
     {
       "parameters": {
-        "content": "## 3b. Erasure (Art. 17)\nNothing is deleted until the DPO posts a decision to the approval link. Check legal holds and retention duties (Art. 17(3)) before approving.",
-        "height": 400,
-        "width": 1840,
+        "content": "## 3b. Erasure\nGDPR Art. 17 · CCPA right to delete\nNothing is deleted until the DPO posts a decision. The approval message lists the exceptions to check for the request's jurisdiction.",
+        "height": 300,
+        "width": 2000,
         "color": 3
       },
       "id": "5594dbee-d246-585b-9da2-fdfa1dc97b68",
@@ -77,23 +77,39 @@
       "typeVersion": 1,
       "position": [
         2780,
-        340
+        280
       ]
     },
     {
       "parameters": {
-        "content": "## 4. Close out\nRecords the final status and completion time in the register (Art. 5(2) accountability).",
-        "height": 440,
-        "width": 320,
-        "color": 7
+        "content": "## 3c. Correction and refusals\nGDPR Art. 16 · CCPA right to correct\nThe privacy team makes the change, then posts CORRECTED or REFUSE. Any refusal (erasure or correction) explains the reason and where to complain.",
+        "height": 380,
+        "width": 1180,
+        "color": 6
       },
       "id": "edc5bc37-5530-56b4-97f1-a3e3cf28a151",
       "name": "Sticky Note 6",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        4520,
-        180
+        2980,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4. Close out\nRecords the final status and completion time in the register.",
+        "height": 300,
+        "width": 300,
+        "color": 7
+      },
+      "id": "116428c6-da15-5d92-9601-068035204f6c",
+      "name": "Sticky Note 7",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        4800,
+        380
       ]
     },
     {
@@ -114,7 +130,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Validate the incoming request and compute the GDPR Art. 12(3) deadline:\n// one calendar month from receipt (clamped to month end, e.g. 31 Jan -> 28/29 Feb).\nconst body = $input.first().json.body ?? $input.first().json;\nconst type = String(body.requestType ?? '').trim().toLowerCase();\nconst email = String(body.email ?? '').trim().toLowerCase();\n\nif (!['access', 'erasure'].includes(type)) {\n  throw new Error(`requestType must be \"access\" or \"erasure\", got \"${body.requestType}\"`);\n}\nif (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)) {\n  throw new Error('A valid email address is required');\n}\n\nfunction addOneMonth(date) {\n  const y = date.getUTCFullYear();\n  const m = date.getUTCMonth() + 1;\n  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();\n  return new Date(Date.UTC(y, m, Math.min(date.getUTCDate(), lastDay)));\n}\n\nconst received = body.receivedAt ? new Date(body.receivedAt) : new Date();\nif (isNaN(received)) throw new Error('receivedAt is not a valid date');\nconst stamp = received.toISOString().slice(0, 10).replace(/-/g, '');\nconst suffix = Math.random().toString(36).slice(2, 7).toUpperCase();\n\nreturn [{\n  json: {\n    requestId: `DSAR-${stamp}-${suffix}`,\n    requestType: type,\n    email,\n    fullName: String(body.fullName ?? '').trim(),\n    receivedAt: received.toISOString(),\n    deadline: addOneMonth(received).toISOString().slice(0, 10),\n  },\n}];\n"
+        "jsCode": "// Validate the request, apply the rules for its jurisdiction, and compute deadlines.\n// To support another law, add an entry to RULES. Deadlines run from receipt, not from verification.\nconst RULES = {\n  GDPR: {\n    name: 'GDPR (EU/EEA)',\n    deadline: { months: 1 }, // Art. 12(3)\n    extension: { months: 2 }, // Art. 12(3): up to two further months, with notice\n    acknowledgeWithin: null, // no separate acknowledgment deadline\n    refs: { access: 'Article 15 GDPR', erasure: 'Article 17 GDPR', correction: 'Article 16 GDPR' },\n    erasureExceptions: 'Art. 17(3) exceptions: legal obligations (e.g. employment and tax record retention), legal claims, legal holds',\n    complaint: 'You have the right to lodge a complaint with a supervisory authority and to seek a judicial remedy (Article 12(4) GDPR).',\n  },\n  CCPA: {\n    name: 'CCPA/CPRA (California)',\n    deadline: { days: 45 }, // Cal. Code Regs. tit. 11, § 7021(b)\n    extension: { days: 45 }, // § 7021(b): up to 90 days in total, with notice and the reason\n    acknowledgeWithin: { businessDays: 10 }, // § 7021(a)\n    refs: {\n      access: 'the California Consumer Privacy Act (right to know)',\n      erasure: 'the California Consumer Privacy Act (right to delete)',\n      correction: 'the California Consumer Privacy Act (right to correct)',\n    },\n    erasureExceptions: 'Cal. Civ. Code § 1798.105(d) exceptions: legal obligations, security and fraud detection, internal uses the person would reasonably expect',\n    complaint: 'If you believe your request was not handled correctly, you may contact the California Privacy Protection Agency.',\n  },\n};\nconst TYPE_ALIASES = {\n  access: 'access', know: 'access',\n  erasure: 'erasure', delete: 'erasure', deletion: 'erasure',\n  correction: 'correction', correct: 'correction', rectification: 'correction',\n};\n\nconst body = $input.first().json.body ?? $input.first().json;\nconst jurisdiction = String(body.jurisdiction ?? 'GDPR').trim().toUpperCase();\nconst rules = RULES[jurisdiction];\nif (!rules) throw new Error(`jurisdiction must be one of ${Object.keys(RULES).join(', ')}, got \"${body.jurisdiction}\"`);\n\nconst type = TYPE_ALIASES[String(body.requestType ?? '').trim().toLowerCase()];\nif (!type) throw new Error(`requestType must be one of ${Object.keys(TYPE_ALIASES).join(', ')}, got \"${body.requestType}\"`);\n\nconst email = String(body.email ?? '').trim().toLowerCase();\nif (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)) throw new Error('A valid email address is required');\n\nconst details = String(body.details ?? '').trim();\nif (type === 'correction' && !details) throw new Error('Correction requests need \"details\": what is wrong and what it should say');\n\n// ---------- date helpers (UTC) ----------\nfunction addMonths(date, n) {\n  const y = date.getUTCFullYear();\n  const m = date.getUTCMonth() + n;\n  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();\n  return new Date(Date.UTC(y, m, Math.min(date.getUTCDate(), lastDay)));\n}\nfunction addDays(date, n) {\n  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + n));\n}\n// Counts Monday-Friday only. Public holidays are not excluded, so the result is conservative.\nfunction addBusinessDays(date, n) {\n  let d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));\n  let added = 0;\n  while (added < n) {\n    d = addDays(d, 1);\n    const dow = d.getUTCDay();\n    if (dow !== 0 && dow !== 6) added += 1;\n  }\n  return d;\n}\nfunction apply(date, period) {\n  if (period.months) return addMonths(date, period.months);\n  if (period.days) return addDays(date, period.days);\n  if (period.businessDays) return addBusinessDays(date, period.businessDays);\n  throw new Error('Unknown period');\n}\nconst day = (d) => d.toISOString().slice(0, 10);\n\nconst received = body.receivedAt ? new Date(body.receivedAt) : new Date();\nif (isNaN(received)) throw new Error('receivedAt is not a valid date');\nconst deadline = apply(received, rules.deadline);\n// Count month-based extensions from receipt (31 Jan + 3 months = 30 Apr), not from the clamped deadline.\nconst extendedDeadline = rules.deadline.months && rules.extension.months\n  ? addMonths(received, rules.deadline.months + rules.extension.months)\n  : apply(deadline, rules.extension);\nconst stamp = day(received).replace(/-/g, '');\nconst suffix = Math.random().toString(36).slice(2, 7).toUpperCase();\n\nreturn [{\n  json: {\n    requestId: `DSAR-${stamp}-${suffix}`,\n    jurisdiction,\n    jurisdictionName: rules.name,\n    requestType: type,\n    email,\n    fullName: String(body.fullName ?? '').trim(),\n    details,\n    receivedAt: received.toISOString(),\n    deadline: day(deadline),\n    extendedDeadline: day(extendedDeadline),\n    acknowledgeBy: rules.acknowledgeWithin ? day(apply(received, rules.acknowledgeWithin)) : '',\n    legalRef: rules.refs[type],\n    erasureExceptions: rules.erasureExceptions,\n    complaintText: rules.complaint,\n  },\n}];\n"
       },
       "id": "219d7a62-6354-5401-a072-31d944329c97",
       "name": "Normalize Request",
@@ -171,9 +187,11 @@
           "mappingMode": "defineBelow",
           "value": {
             "RequestId": "={{$('Normalize Request').first().json.requestId}}",
+            "Jurisdiction": "={{$('Normalize Request').first().json.jurisdiction}}",
             "RequestType": "={{$('Normalize Request').first().json.requestType}}",
             "Email": "={{$('Normalize Request').first().json.email}}",
             "ReceivedAt": "={{$('Normalize Request').first().json.receivedAt}}",
+            "AcknowledgedAt": "={{$now.toISO()}}",
             "Deadline": "={{$('Normalize Request').first().json.deadline}}",
             "Status": "Received - awaiting verification",
             "SystemsFound": "",
@@ -184,6 +202,15 @@
             {
               "id": "RequestId",
               "displayName": "RequestId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Jurisdiction",
+              "displayName": "Jurisdiction",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -211,6 +238,15 @@
             {
               "id": "ReceivedAt",
               "displayName": "ReceivedAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "AcknowledgedAt",
+              "displayName": "AcknowledgedAt",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -270,13 +306,13 @@
       "parameters": {
         "fromEmail": "={{$('Workflow Configuration').first().json.fromEmail}}",
         "toEmail": "={{$('Normalize Request').first().json.email}}",
-        "subject": "=Confirm your data request {{$('Normalize Request').first().json.requestId}}",
+        "subject": "=We received your privacy request {{$('Normalize Request').first().json.requestId}}",
         "emailFormat": "text",
-        "text": "=Hello,\n\nWe received a request to {{$('Normalize Request').first().json.requestType === 'access' ? 'access a copy of' : 'erase'}} the personal data we hold about you.\n\nTo confirm it was you, open this link within 7 days:\n{{$execution.resumeUrl}}\n\nIf you did not make this request, ignore this email.\n\nReference: {{$('Normalize Request').first().json.requestId}}",
+        "text": "=Hello,\n\nWe received your {{$('Normalize Request').first().json.requestType}} request on {{ $('Normalize Request').first().json.receivedAt.slice(0, 10) }} under {{$('Normalize Request').first().json.jurisdictionName}}.\nWe will respond by {{$('Normalize Request').first().json.deadline}}. If we need more time, we will tell you why before that date.\n\nTo confirm the request came from you, open this link within 7 days:\n{{$execution.resumeUrl}}\n\nIf you did not make this request, ignore this email.\n\nReference: {{$('Normalize Request').first().json.requestId}}",
         "options": {}
       },
-      "id": "ecd4fbb8-d87e-5726-9f42-3d824e75bd15",
-      "name": "Send Verification Email",
+      "id": "15a13032-d7c4-57ac-9279-b34ff7b6c0a0",
+      "name": "Send Acknowledgment and Verification",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
@@ -337,8 +373,29 @@
     },
     {
       "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "outcome",
+              "stringValue": "Closed - not verified"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9fa64a30-06e5-5619-b5fd-3560f1672c6d",
+      "name": "Outcome: Not Verified",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        1520,
+        640
+      ]
+    },
+    {
+      "parameters": {
         "method": "GET",
-        "url": "=https://slack.com/api/users.lookupByEmail?email={{encodeURIComponent($('Normalize Request').first().json.email)}}",
+        "url": "={{'https://slack.com/api/users.lookupByEmail?email=' + encodeURIComponent($('Normalize Request').first().json.email)}}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "slackApi",
         "options": {}
@@ -357,7 +414,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "=https://admin.googleapis.com/admin/directory/v1/users/{{encodeURIComponent($('Normalize Request').first().json.email)}}",
+        "url": "={{'https://admin.googleapis.com/admin/directory/v1/users/' + encodeURIComponent($('Normalize Request').first().json.email)}}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "googleOAuth2Api",
         "options": {}
@@ -376,7 +433,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{$('Workflow Configuration').first().json.jiraBaseUrl}}/rest/api/3/user/search?query={{encodeURIComponent($('Normalize Request').first().json.email)}}",
+        "url": "={{$('Workflow Configuration').first().json.jiraBaseUrl + '/rest/api/3/user/search?query=' + encodeURIComponent($('Normalize Request').first().json.email)}}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "jiraSoftwareCloudApi",
         "options": {}
@@ -427,8 +484,8 @@
         },
         "options": {}
       },
-      "id": "fd17ebbc-4d03-57cf-bc6b-a4bd73af01fa",
-      "name": "Access or Erasure?",
+      "id": "0ce514ab-399b-5650-95e7-903f9736501b",
+      "name": "Access Request?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
@@ -441,7 +498,7 @@
         "operation": "toJson",
         "mode": "once",
         "options": {
-          "fileName": "={{$('Build Data Inventory').first().json.requestId}}-personal-data.json",
+          "fileName": "={{$('Build Data Inventory').first().json.requestId + '-personal-data.json'}}",
           "format": true
         }
       },
@@ -451,16 +508,16 @@
       "typeVersion": 1.1,
       "position": [
         2840,
-        160
+        80
       ]
     },
     {
       "parameters": {
         "fromEmail": "={{$('Workflow Configuration').first().json.fromEmail}}",
         "toEmail": "={{$('Build Data Inventory').first().json.email}}",
-        "subject": "=Your personal data export ({{$('Build Data Inventory').first().json.requestId}})",
+        "subject": "=Your personal data ({{$('Build Data Inventory').first().json.requestId}})",
         "emailFormat": "text",
-        "text": "=Hello,\n\nAttached is a copy of the personal data we hold about you in our workplace systems ({{$('Build Data Inventory').first().json.systemsFound}}), as requested under Article 15 GDPR.\n\nYou also have the right to rectification, erasure, restriction of processing, and to lodge a complaint with a supervisory authority.\n\nReference: {{$('Build Data Inventory').first().json.requestId}}",
+        "text": "=Hello,\n\nAttached is a copy of the personal data we hold about you in our workplace systems ({{$('Build Data Inventory').first().json.systemsFound}}), as requested under {{$('Build Data Inventory').first().json.legalRef}}.\n\nYou may also ask us to correct or delete this data.\n\nReference: {{$('Build Data Inventory').first().json.requestId}}",
         "options": {
           "attachments": "data"
         }
@@ -471,7 +528,7 @@
       "typeVersion": 2.1,
       "position": [
         3060,
-        160
+        80
       ]
     },
     {
@@ -492,7 +549,38 @@
       "typeVersion": 3,
       "position": [
         3280,
-        160
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json.requestType}}",
+              "rightValue": "erasure",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "375fe602-d3e7-55f8-a851-a1ab8867588d",
+      "name": "Erasure Request?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2840,
+        460
       ]
     },
     {
@@ -503,7 +591,7 @@
           "value": "#privacy-approvals",
           "mode": "name"
         },
-        "text": "=🗑️ *Erasure request {{$('Build Data Inventory').first().json.requestId}}*\nSubject: {{$('Build Data Inventory').first().json.email}}\nFound in: {{$('Build Data Inventory').first().json.systemsFound}}\nDeadline: {{$('Build Data Inventory').first().json.deadline}}\n\nBefore approving, check Art. 17(3) exceptions: legal holds, employment and tax record retention, open disputes.\nDecide: POST {\"decision\": \"ERASE\"} or {\"decision\": \"REFUSE\", \"reason\": \"...\"} to {{$execution.resumeUrl}}",
+        "text": "=🗑️ *Erasure request {{$('Build Data Inventory').first().json.requestId}}* ({{$('Build Data Inventory').first().json.jurisdictionName}})\nSubject: {{$('Build Data Inventory').first().json.email}}\nFound in: {{$('Build Data Inventory').first().json.systemsFound}}\nDeadline: {{$('Build Data Inventory').first().json.deadline}}\n\nBefore approving, check {{$('Build Data Inventory').first().json.erasureExceptions}}.\nDecide: POST {\"decision\": \"ERASE\"} or {\"decision\": \"REFUSE\", \"reason\": \"...\"} to {{$execution.resumeUrl}}",
         "otherOptions": {}
       },
       "id": "02f2505b-b6e5-5fca-9679-8d0d434a237e",
@@ -511,8 +599,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.2,
       "position": [
-        2840,
-        440
+        3060,
+        400
       ]
     },
     {
@@ -526,8 +614,8 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        3060,
-        440
+        3280,
+        400
       ]
     },
     {
@@ -557,14 +645,14 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        3280,
-        440
+        3500,
+        400
       ]
     },
     {
       "parameters": {
         "method": "DELETE",
-        "url": "=https://api.slack.com/scim/v2/Users/{{$('Build Data Inventory').first().json.slackUserId}}",
+        "url": "={{'https://api.slack.com/scim/v2/Users/' + $('Build Data Inventory').first().json.slackUserId}}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "options": {}
@@ -574,8 +662,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3500,
-        340
+        3720,
+        360
       ],
       "onError": "continueRegularOutput",
       "alwaysOutputData": true
@@ -583,7 +671,7 @@
     {
       "parameters": {
         "method": "DELETE",
-        "url": "=https://admin.googleapis.com/admin/directory/v1/users/{{encodeURIComponent($('Build Data Inventory').first().json.email)}}",
+        "url": "={{'https://admin.googleapis.com/admin/directory/v1/users/' + encodeURIComponent($('Build Data Inventory').first().json.email)}}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "googleOAuth2Api",
         "options": {}
@@ -593,8 +681,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3720,
-        340
+        3940,
+        360
       ],
       "onError": "continueRegularOutput",
       "alwaysOutputData": true
@@ -602,7 +690,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://api.atlassian.com/users/{{$('Build Data Inventory').first().json.jiraAccountId}}/manage/lifecycle/delete",
+        "url": "={{'https://api.atlassian.com/users/' + $('Build Data Inventory').first().json.jiraAccountId + '/manage/lifecycle/delete'}}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "options": {}
@@ -612,8 +700,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3940,
-        340
+        4160,
+        360
       ],
       "onError": "continueRegularOutput",
       "alwaysOutputData": true
@@ -622,9 +710,9 @@
       "parameters": {
         "fromEmail": "={{$('Workflow Configuration').first().json.fromEmail}}",
         "toEmail": "={{$('Build Data Inventory').first().json.email}}",
-        "subject": "=Your data has been erased ({{$('Build Data Inventory').first().json.requestId}})",
+        "subject": "=Your data has been deleted ({{$('Build Data Inventory').first().json.requestId}})",
         "emailFormat": "text",
-        "text": "=Hello,\n\nAs requested under Article 17 GDPR, we have erased your personal data from: {{$('Build Data Inventory').first().json.systemsFound}}.\n\nReference: {{$('Build Data Inventory').first().json.requestId}}",
+        "text": "=Hello,\n\nAs requested under {{$('Build Data Inventory').first().json.legalRef}}, we have deleted your personal data from: {{$('Build Data Inventory').first().json.systemsFound}}.\n\nReference: {{$('Build Data Inventory').first().json.requestId}}",
         "options": {}
       },
       "id": "c28b8c05-9100-544e-bd16-640a26f50503",
@@ -632,8 +720,8 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        4160,
-        340
+        4380,
+        360
       ]
     },
     {
@@ -653,17 +741,122 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
       "position": [
-        4380,
-        340
+        4600,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#privacy-approvals",
+          "mode": "name"
+        },
+        "text": "=✏️ *Correction request {{$('Build Data Inventory').first().json.requestId}}* ({{$('Build Data Inventory').first().json.jurisdictionName}})\nSubject: {{$('Build Data Inventory').first().json.email}}\nFound in: {{$('Build Data Inventory').first().json.systemsFound}}\nDeadline: {{$('Build Data Inventory').first().json.deadline}}\n\nRequested correction:\n> {{$('Build Data Inventory').first().json.details}}\n\nMake the change in each system, then POST {\"decision\": \"CORRECTED\", \"summary\": \"...\"} or {\"decision\": \"REFUSE\", \"reason\": \"...\"} to {{$execution.resumeUrl}}",
+        "otherOptions": {}
+      },
+      "id": "d0f42b07-8302-54a3-a695-8fad6e44ed54",
+      "name": "Ask Privacy Team to Correct",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        3060,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "id": "ce950206-ba5c-589d-a0dd-f2d58d0782f2",
+      "name": "Wait for Correction",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3280,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json.body.decision}}",
+              "rightValue": "CORRECTED",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "36d10282-f550-5af9-ac64-d28d6dff2cb9",
+      "name": "Correction Made?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3500,
+        700
       ]
     },
     {
       "parameters": {
         "fromEmail": "={{$('Workflow Configuration').first().json.fromEmail}}",
         "toEmail": "={{$('Build Data Inventory').first().json.email}}",
-        "subject": "=Update on your erasure request ({{$('Build Data Inventory').first().json.requestId}})",
+        "subject": "=Your data has been corrected ({{$('Build Data Inventory').first().json.requestId}})",
         "emailFormat": "text",
-        "text": "=Hello,\n\nWe are unable to erase some or all of your data for the following reason:\n{{$json.body.reason}}\n\nYou have the right to lodge a complaint with a supervisory authority and to seek a judicial remedy (Article 12(4) GDPR).\n\nReference: {{$('Build Data Inventory').first().json.requestId}}",
+        "text": "=Hello,\n\nAs requested under {{$('Build Data Inventory').first().json.legalRef}}, we have corrected your personal data.\n\nWhat changed: {{$json.body.summary}}\n\nReference: {{$('Build Data Inventory').first().json.requestId}}",
+        "options": {}
+      },
+      "id": "3b17de4d-1c96-52b0-86e4-cbba13c126fe",
+      "name": "Confirm Correction to Requester",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        3720,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "outcome",
+              "stringValue": "Completed - corrected"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7cd31e41-134f-5cc0-ae78-842fb3811771",
+      "name": "Outcome: Corrected",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        3940,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{$('Workflow Configuration').first().json.fromEmail}}",
+        "toEmail": "={{$('Build Data Inventory').first().json.email}}",
+        "subject": "=Update on your privacy request ({{$('Build Data Inventory').first().json.requestId}})",
+        "emailFormat": "text",
+        "text": "=Hello,\n\nWe are unable to complete some or all of your {{$('Build Data Inventory').first().json.requestType}} request, for the following reason:\n{{$json.body.reason}}\n\n{{$('Build Data Inventory').first().json.complaintText}}\n\nReference: {{$('Build Data Inventory').first().json.requestId}}",
         "options": {}
       },
       "id": "c3313d54-cc14-5f0a-a1ca-59ffa64d382c",
@@ -671,8 +864,8 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        3500,
-        560
+        3720,
+        860
       ]
     },
     {
@@ -692,29 +885,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
       "position": [
-        3720,
-        560
-      ]
-    },
-    {
-      "parameters": {
-        "fields": {
-          "values": [
-            {
-              "name": "outcome",
-              "stringValue": "Closed - not verified"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "9fa64a30-06e5-5619-b5fd-3560f1672c6d",
-      "name": "Outcome: Not Verified",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3,
-      "position": [
-        1740,
-        560
+        3940,
+        860
       ]
     },
     {
@@ -787,8 +959,8 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
-        4600,
-        400
+        4860,
+        520
       ]
     }
   ],
@@ -830,14 +1002,14 @@
       "main": [
         [
           {
-            "node": "Send Verification Email",
+            "node": "Send Acknowledgment and Verification",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Send Verification Email": {
+    "Send Acknowledgment and Verification": {
       "main": [
         [
           {
@@ -914,14 +1086,14 @@
       "main": [
         [
           {
-            "node": "Access or Erasure?",
+            "node": "Access Request?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Access or Erasure?": {
+    "Access Request?": {
       "main": [
         [
           {
@@ -932,7 +1104,7 @@
         ],
         [
           {
-            "node": "Ask DPO to Approve Erasure",
+            "node": "Erasure Request?",
             "type": "main",
             "index": 0
           }
@@ -955,6 +1127,24 @@
         [
           {
             "node": "Outcome: Access Fulfilled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Erasure Request?": {
+      "main": [
+        [
+          {
+            "node": "Ask DPO to Approve Erasure",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ask Privacy Team to Correct",
             "type": "main",
             "index": 0
           }
@@ -1045,6 +1235,57 @@
         ]
       ]
     },
+    "Ask Privacy Team to Correct": {
+      "main": [
+        [
+          {
+            "node": "Wait for Correction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Correction": {
+      "main": [
+        [
+          {
+            "node": "Correction Made?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Correction Made?": {
+      "main": [
+        [
+          {
+            "node": "Confirm Correction to Requester",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Explain Refusal to Requester",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirm Correction to Requester": {
+      "main": [
+        [
+          {
+            "node": "Outcome: Corrected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Explain Refusal to Requester": {
       "main": [
         [
@@ -1068,6 +1309,17 @@
       ]
     },
     "Outcome: Erased": {
+      "main": [
+        [
+          {
+            "node": "Update DSAR Register",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Outcome: Corrected": {
       "main": [
         [
           {
@@ -1104,7 +1356,7 @@
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "timezone": "Europe/Berlin",
+    "timezone": "UTC",
     "saveDataSuccessExecution": "none"
   },
   "pinData": {}
