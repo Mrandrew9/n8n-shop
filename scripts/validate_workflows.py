@@ -2,7 +2,7 @@
 """Validate every n8n workflow in workflows/.
 
 Checks: valid JSON, required node fields, unique node names, every connection
-points at a real node, every node is reachable from a trigger, Code nodes are
+points at a real node, every node (except sticky notes) is reachable from a trigger, Code nodes are
 valid JavaScript, and no secrets are hardcoded (use credentials or $env).
 """
 
@@ -66,7 +66,8 @@ def check(path: Path) -> list[str]:
         if cur not in seen:
             seen.add(cur)
             stack.extend(graph.get(cur, ()))
-    orphans = sorted(set(names) - seen)
+    notes = {n["name"] for n in nodes if n.get("type") == "n8n-nodes-base.stickyNote"}
+    orphans = sorted(set(names) - seen - notes)
     if orphans:
         errors.append(f"unreachable nodes: {orphans}")
 

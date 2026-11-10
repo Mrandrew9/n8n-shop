@@ -55,7 +55,7 @@ Any other value is treated as a rejection.
 | Channels `#security-approvals`, `#it-approvals` | Your workspace (or edit the Slack nodes) |
 | `IAM_API_BASE_URL` | n8n environment variable; your provisioning API (Okta, Entra ID, internal) |
 | IAM API auth | n8n Credentials → Header Auth |
-| `AUDIT_LOG_SHEET_ID` | n8n environment variable; sheet needs an `AccessLog` tab |
+| `AUDIT_LOG_SHEET_ID` | n8n environment variable; the sheet needs an `AccessLog` tab with columns RequestedAt, Requester, Email, App, AccessLevel, Decision, LoggedAt |
 | Google Sheets credential | n8n Credentials → Google Sheets |
 
 ## Design notes

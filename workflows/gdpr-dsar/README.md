@@ -90,7 +90,7 @@ Status moves from `Received - awaiting verification` to one of `Completed - acce
 
 | Item | Where |
 |---|---|
-| `DSAR_REGISTER_SHEET_ID`, `DSAR_FROM_EMAIL`, `JIRA_BASE_URL` | n8n environment variables |
+| Register sheet ID, sender address, Jira URL | The **Workflow Configuration** node at the start of each workflow |
 | SMTP credential | n8n Credentials → SMTP (used by the email nodes) |
 | Slack credential (`users:read.email`, `chat:write`) | n8n Credentials → Slack API |
 | Slack SCIM token (Enterprise Grid / Business+) | n8n Credentials → Header Auth (`Authorization: Bearer …`) |
@@ -99,7 +99,7 @@ Status moves from `Received - awaiting verification` to one of `Completed - acce
 | Atlassian org admin API key | n8n Credentials → Header Auth |
 | Slack channels `#privacy-approvals`, `#privacy-team` | Your workspace, or edit the Slack nodes |
 
-Import `dsar-workflow.json` and `deadline-monitor.json` through **Workflows → Import from File**, attach your credentials, and activate both.
+Import `dsar-workflow.json` and `deadline-monitor.json` through **Workflows → Import from File**, attach your credentials, and activate both. Sticky notes on the canvas walk through each section and the setup.
 
 ## Design notes
 

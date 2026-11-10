@@ -35,6 +35,8 @@ Every push runs [`validate-workflows`](.github/workflows/validate.yml):
 - `scripts/validate_workflows.py` checks that each workflow is valid JSON, every connection points at a real node, every node is reachable from a trigger, Code nodes are valid JavaScript, and no secrets are hardcoded.
 - `tests/` unit-tests the JavaScript inside Code nodes, read straight from the workflow files.
 
+All workflows also import cleanly into n8n 2.46.7, and every node parameter checks out against n8n's own node definitions.
+
 ```bash
 python scripts/validate_workflows.py
 node --test tests/*.test.js

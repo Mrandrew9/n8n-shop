@@ -96,7 +96,11 @@
     {
       "parameters": {
         "select": "channel",
-        "channelId": "security-approvals",
+        "channelId": {
+          "__rl": true,
+          "value": "#security-approvals",
+          "mode": "name"
+        },
         "text": "=🔐 *Sensitive access request*\nRequester: {{$json[\"requesterName\"]}}\nApp: {{$json[\"appRequested\"]}}\nLevel: {{$json[\"accessLevel\"]}}\nJustification: {{$json[\"justification\"]}}\n\nReply APPROVE or REJECT to this request.",
         "otherOptions": {}
       },
@@ -112,7 +116,11 @@
     {
       "parameters": {
         "select": "channel",
-        "channelId": "it-approvals",
+        "channelId": {
+          "__rl": true,
+          "value": "#it-approvals",
+          "mode": "name"
+        },
         "text": "=🔑 *Standard access request*\nRequester: {{$json[\"requesterName\"]}}\nApp: {{$json[\"appRequested\"]}}\nJustification: {{$json[\"justification\"]}}\n\nReply APPROVE or REJECT to this request.",
         "otherOptions": {}
       },
@@ -151,7 +159,7 @@
           },
           "conditions": [
             {
-              "leftValue": "={{$json[\"decision\"]}}",
+              "leftValue": "={{$json.body.decision}}",
               "rightValue": "APPROVE",
               "operator": {
                 "type": "string",
@@ -195,12 +203,7 @@
             }
           ]
         },
-        "options": {
-          "retry": {
-            "retryOnFail": true,
-            "maxRetries": 3
-          }
-        }
+        "options": {}
       },
       "id": "1a2b3c4d-0008",
       "name": "Grant Access via IAM API",
@@ -209,14 +212,20 @@
       "position": [
         1560,
         260
-      ]
+      ],
+      "retryOnFail": true,
+      "maxTries": 3
     },
     {
       "parameters": {
-        "select": "channel",
-        "channelId": "={{$('Format Request Data').item.json.requesterSlackId}}",
+        "select": "user",
         "text": "=✅ Your access request for {{$('Format Request Data').item.json.appRequested}} has been approved and provisioned.",
-        "otherOptions": {}
+        "otherOptions": {},
+        "user": {
+          "__rl": true,
+          "value": "={{$('Format Request Data').item.json.requesterSlackId}}",
+          "mode": "id"
+        }
       },
       "id": "1a2b3c4d-0009",
       "name": "Notify Requester - Approved",
@@ -229,10 +238,14 @@
     },
     {
       "parameters": {
-        "select": "channel",
-        "channelId": "={{$('Format Request Data').item.json.requesterSlackId}}",
+        "select": "user",
         "text": "=❌ Your access request for {{$('Format Request Data').item.json.appRequested}} was not approved. Contact your approver for details.",
-        "otherOptions": {}
+        "otherOptions": {},
+        "user": {
+          "__rl": true,
+          "value": "={{$('Format Request Data').item.json.requesterSlackId}}",
+          "mode": "id"
+        }
       },
       "id": "1a2b3c4d-0010",
       "name": "Notify Requester - Rejected",
@@ -246,8 +259,94 @@
     {
       "parameters": {
         "operation": "append",
-        "sheetId": "={{$env[\"AUDIT_LOG_SHEET_ID\"]}}",
-        "range": "AccessLog!A:G",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$env[\"AUDIT_LOG_SHEET_ID\"]}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "AccessLog",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "RequestedAt": "={{$('Format Request Data').item.json.requestedAt}}",
+            "Requester": "={{$('Format Request Data').item.json.requesterName}}",
+            "Email": "={{$('Format Request Data').item.json.requesterEmail}}",
+            "App": "={{$('Format Request Data').item.json.appRequested}}",
+            "AccessLevel": "={{$('Format Request Data').item.json.accessLevel}}",
+            "Decision": "={{$('Wait for Approval Decision').item.json.body.decision}}",
+            "LoggedAt": "={{$now.toISO()}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "RequestedAt",
+              "displayName": "RequestedAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Requester",
+              "displayName": "Requester",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "App",
+              "displayName": "App",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "AccessLevel",
+              "displayName": "AccessLevel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Decision",
+              "displayName": "Decision",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "LoggedAt",
+              "displayName": "LoggedAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
         "options": {}
       },
       "id": "1a2b3c4d-0011",

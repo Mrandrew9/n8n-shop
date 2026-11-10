@@ -3,6 +3,101 @@
   "nodes": [
     {
       "parameters": {
+        "content": "## GDPR Data Subject Request (DSAR) automation\nHandles GDPR **access (Art. 15)** and **erasure (Art. 17)** requests for workplace data in Slack, Google Workspace and Jira, from intake to closure.\n\n### How it works\n1. A webhook receives the request. The deadline is set to one calendar month from receipt (Art. 12(3)).\n2. The request is logged to a Google Sheets register.\n3. The requester gets a verification link and has 7 days to click it.\n4. The person is looked up in Slack, Google Workspace and Jira.\n5. **Access:** a JSON export is emailed to them. **Erasure:** a DPO approves in Slack before anything is deleted. A refusal explains the reason and the right to complain.\n6. The register is updated with the outcome.\n\nPair with the **GDPR DSAR Deadline Monitor** workflow for daily overdue alerts.\n\n### Setup\n1. Fill in **Workflow Configuration** (sheet ID, sender address, Jira URL).\n2. Add credentials: SMTP, Slack API (`users:read.email`, `chat:write`), Google OAuth2 with Admin SDK Directory access, Jira Software Cloud, and Header Auth for the Slack SCIM and Atlassian admin APIs.\n3. Create a Google Sheet with a `DSARRegister` tab and the columns RequestId, RequestType, Email, ReceivedAt, Deadline, Status, SystemsFound, CompletedAt.\n4. Create the Slack channel `#privacy-approvals`.\n\n### Limitations\n- A technical template, not legal advice. Review retention rules with your DPO.\n- Slack SCIM needs a Business+ or Enterprise Grid plan.\n- Deleting a Google user is permanent. Transfer Drive files first if they must be kept.\n\nExample request body:\n`{\"requestType\": \"access\", \"email\": \"max.mustermann@example.de\"}`",
+        "height": 1060,
+        "width": 560
+      },
+      "id": "109fbb05-61f9-581c-af4c-dfde5a0935a7",
+      "name": "Sticky Note 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -460,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 1. Intake and identity check\nNormalizes the request, sets the one-month deadline, logs it, and waits up to 7 days for the requester to confirm by email. Unverified requests are closed and logged.",
+        "height": 600,
+        "width": 1440,
+        "color": 7
+      },
+      "id": "2eb689b6-a773-51c0-86f9-9ad3561cb83a",
+      "name": "Sticky Note 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. Locate personal data\nLooks the person up in each system. A lookup that finds nothing does not fail the run: it is recorded as not found.",
+        "height": 400,
+        "width": 960,
+        "color": 7
+      },
+      "id": "213a8750-6243-5b1e-99e1-24df2aac9e8a",
+      "name": "Sticky Note 3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3a. Access (Art. 15)\nCompiles what was found into a JSON file and emails it to the requester.",
+        "height": 320,
+        "width": 700,
+        "color": 4
+      },
+      "id": "e9acbcb6-0cb5-554d-abf0-00ccca7ea922",
+      "name": "Sticky Note 4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2780,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3b. Erasure (Art. 17)\nNothing is deleted until the DPO posts a decision to the approval link. Check legal holds and retention duties (Art. 17(3)) before approving.",
+        "height": 400,
+        "width": 1840,
+        "color": 3
+      },
+      "id": "5594dbee-d246-585b-9da2-fdfa1dc97b68",
+      "name": "Sticky Note 5",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2780,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4. Close out\nRecords the final status and completion time in the register (Art. 5(2) accountability).",
+        "height": 440,
+        "width": 320,
+        "color": 7
+      },
+      "id": "edc5bc37-5530-56b4-97f1-a3e3cf28a151",
+      "name": "Sticky Note 6",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        4520,
+        180
+      ]
+    },
+    {
+      "parameters": {
         "httpMethod": "POST",
         "path": "dsar-request",
         "responseMode": "onReceived",
@@ -32,10 +127,39 @@
     },
     {
       "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "registerSheetId",
+              "stringValue": "YOUR_GOOGLE_SHEET_ID"
+            },
+            {
+              "name": "fromEmail",
+              "stringValue": "privacy@example.com"
+            },
+            {
+              "name": "jiraBaseUrl",
+              "stringValue": "https://your-domain.atlassian.net"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d2e2fd70-4fa8-576a-bb56-eeacc71853f8",
+      "name": "Workflow Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        640,
+        400
+      ]
+    },
+    {
+      "parameters": {
         "operation": "append",
         "documentId": {
           "__rl": true,
-          "value": "={{$env.DSAR_REGISTER_SHEET_ID}}",
+          "value": "={{$('Workflow Configuration').first().json.registerSheetId}}",
           "mode": "id"
         },
         "sheetName": {
@@ -46,15 +170,90 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "RequestId": "={{$json.requestId}}",
-            "RequestType": "={{$json.requestType}}",
-            "Email": "={{$json.email}}",
-            "ReceivedAt": "={{$json.receivedAt}}",
-            "Deadline": "={{$json.deadline}}",
+            "RequestId": "={{$('Normalize Request').first().json.requestId}}",
+            "RequestType": "={{$('Normalize Request').first().json.requestType}}",
+            "Email": "={{$('Normalize Request').first().json.email}}",
+            "ReceivedAt": "={{$('Normalize Request').first().json.receivedAt}}",
+            "Deadline": "={{$('Normalize Request').first().json.deadline}}",
             "Status": "Received - awaiting verification",
             "SystemsFound": "",
             "CompletedAt": ""
-          }
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "RequestId",
+              "displayName": "RequestId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "RequestType",
+              "displayName": "RequestType",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ReceivedAt",
+              "displayName": "ReceivedAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Deadline",
+              "displayName": "Deadline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "SystemsFound",
+              "displayName": "SystemsFound",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "CompletedAt",
+              "displayName": "CompletedAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
         },
         "options": {}
       },
@@ -63,13 +262,13 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
-        640,
+        860,
         400
       ]
     },
     {
       "parameters": {
-        "fromEmail": "={{$env.DSAR_FROM_EMAIL}}",
+        "fromEmail": "={{$('Workflow Configuration').first().json.fromEmail}}",
         "toEmail": "={{$('Normalize Request').first().json.email}}",
         "subject": "=Confirm your data request {{$('Normalize Request').first().json.requestId}}",
         "emailFormat": "text",
@@ -81,7 +280,7 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        860,
+        1080,
         400
       ]
     },
@@ -100,7 +299,7 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        1080,
+        1300,
         400
       ]
     },
@@ -132,7 +331,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1300,
+        1520,
         400
       ]
     },
@@ -149,7 +348,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1520,
+        1740,
         300
       ],
       "onError": "continueRegularOutput",
@@ -168,7 +367,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1740,
+        1960,
         300
       ],
       "onError": "continueRegularOutput",
@@ -177,7 +376,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{$env.JIRA_BASE_URL}}/rest/api/3/user/search?query={{encodeURIComponent($('Normalize Request').first().json.email)}}",
+        "url": "={{$('Workflow Configuration').first().json.jiraBaseUrl}}/rest/api/3/user/search?query={{encodeURIComponent($('Normalize Request').first().json.email)}}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "jiraSoftwareCloudApi",
         "options": {}
@@ -187,7 +386,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1960,
+        2180,
         300
       ],
       "onError": "continueRegularOutput",
@@ -202,7 +401,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2180,
+        2400,
         300
       ]
     },
@@ -233,7 +432,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        2400,
+        2620,
         300
       ]
     },
@@ -251,13 +450,13 @@
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1.1,
       "position": [
-        2620,
+        2840,
         160
       ]
     },
     {
       "parameters": {
-        "fromEmail": "={{$env.DSAR_FROM_EMAIL}}",
+        "fromEmail": "={{$('Workflow Configuration').first().json.fromEmail}}",
         "toEmail": "={{$('Build Data Inventory').first().json.email}}",
         "subject": "=Your personal data export ({{$('Build Data Inventory').first().json.requestId}})",
         "emailFormat": "text",
@@ -271,7 +470,7 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        2840,
+        3060,
         160
       ]
     },
@@ -292,14 +491,18 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
       "position": [
-        3060,
+        3280,
         160
       ]
     },
     {
       "parameters": {
         "select": "channel",
-        "channelId": "privacy-approvals",
+        "channelId": {
+          "__rl": true,
+          "value": "#privacy-approvals",
+          "mode": "name"
+        },
         "text": "=🗑️ *Erasure request {{$('Build Data Inventory').first().json.requestId}}*\nSubject: {{$('Build Data Inventory').first().json.email}}\nFound in: {{$('Build Data Inventory').first().json.systemsFound}}\nDeadline: {{$('Build Data Inventory').first().json.deadline}}\n\nBefore approving, check Art. 17(3) exceptions: legal holds, employment and tax record retention, open disputes.\nDecide: POST {\"decision\": \"ERASE\"} or {\"decision\": \"REFUSE\", \"reason\": \"...\"} to {{$execution.resumeUrl}}",
         "otherOptions": {}
       },
@@ -308,7 +511,7 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.2,
       "position": [
-        2620,
+        2840,
         440
       ]
     },
@@ -323,7 +526,7 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        2840,
+        3060,
         440
       ]
     },
@@ -354,7 +557,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        3060,
+        3280,
         440
       ]
     },
@@ -371,7 +574,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3280,
+        3500,
         340
       ],
       "onError": "continueRegularOutput",
@@ -390,7 +593,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3500,
+        3720,
         340
       ],
       "onError": "continueRegularOutput",
@@ -409,7 +612,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3720,
+        3940,
         340
       ],
       "onError": "continueRegularOutput",
@@ -417,7 +620,7 @@
     },
     {
       "parameters": {
-        "fromEmail": "={{$env.DSAR_FROM_EMAIL}}",
+        "fromEmail": "={{$('Workflow Configuration').first().json.fromEmail}}",
         "toEmail": "={{$('Build Data Inventory').first().json.email}}",
         "subject": "=Your data has been erased ({{$('Build Data Inventory').first().json.requestId}})",
         "emailFormat": "text",
@@ -429,7 +632,7 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        3940,
+        4160,
         340
       ]
     },
@@ -450,13 +653,13 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
       "position": [
-        4160,
+        4380,
         340
       ]
     },
     {
       "parameters": {
-        "fromEmail": "={{$env.DSAR_FROM_EMAIL}}",
+        "fromEmail": "={{$('Workflow Configuration').first().json.fromEmail}}",
         "toEmail": "={{$('Build Data Inventory').first().json.email}}",
         "subject": "=Update on your erasure request ({{$('Build Data Inventory').first().json.requestId}})",
         "emailFormat": "text",
@@ -468,7 +671,7 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        3280,
+        3500,
         560
       ]
     },
@@ -489,7 +692,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
       "position": [
-        3500,
+        3720,
         560
       ]
     },
@@ -510,7 +713,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
       "position": [
-        1520,
+        1740,
         560
       ]
     },
@@ -519,7 +722,7 @@
         "operation": "update",
         "documentId": {
           "__rl": true,
-          "value": "={{$env.DSAR_REGISTER_SHEET_ID}}",
+          "value": "={{$('Workflow Configuration').first().json.registerSheetId}}",
           "mode": "id"
         },
         "sheetName": {
@@ -537,6 +740,44 @@
           },
           "matchingColumns": [
             "RequestId"
+          ],
+          "schema": [
+            {
+              "id": "RequestId",
+              "displayName": "RequestId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "SystemsFound",
+              "displayName": "SystemsFound",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "CompletedAt",
+              "displayName": "CompletedAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
           ]
         },
         "options": {}
@@ -546,7 +787,7 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
-        4380,
+        4600,
         400
       ]
     }
@@ -564,6 +805,17 @@
       ]
     },
     "Normalize Request": {
+      "main": [
+        [
+          {
+            "node": "Workflow Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Configuration": {
       "main": [
         [
           {
